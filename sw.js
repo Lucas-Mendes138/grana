@@ -1,5 +1,5 @@
 // Grana — service worker: deixa o app abrir offline.
-const VERSION = "grana-v1";
+const VERSION = "grana-v2";
 const CORE = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

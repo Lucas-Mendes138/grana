@@ -521,12 +521,30 @@ function recents(){
   [...S.gastos].sort((a,b)=>(b.criado||0)-(a.criado||0)).forEach(g=>{const k=g.cat+"|"+(g.desc||"")+"|"+g.valor;if(!seen.has(k)&&out.length<6&&g.desc){seen.add(k);out.push(g)}});
   return out;
 }
-function openSheet(g){
+function openSheet(g,pre){
   if(S.readOnly)return;
   const t=today();
   sheet={id:g?.id||null,valor:g?String(g.valor).replace(".",","):"",cat:g?.cat||null,data:g?.data||(S.ym===ymOf(new Date())?t:S.ym+"-01"),desc:g?.desc||"",pag:g?.pag||"Pix",exemplo:!!g?.exemplo,criado:g?.criado||null,err:"",confirmDel:false};
+  if(pre&&!g)Object.assign(sheet,pre);
   drawSheet();
-  setTimeout(()=>{const i=document.getElementById("valor");if(i&&!g)i.focus()},60);
+  setTimeout(()=>{const i=document.getElementById("valor");if(i&&!g&&!(pre&&pre.valor))i.focus()},60);
+}
+/* Gasto pré-preenchido pelo link: ?valor=19&cat=alim&desc=lanche&pag=Pix&data=ontem
+   Só abre a tela já preenchida; quem salva é você, tocando em Adicionar. */
+function prefillFromURL(q){
+  const norm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  const pre={};
+  const v=q.get("valor");
+  if(v&&/^\d+([.,]\d{1,2})?$/.test(v.trim()))pre.valor=v.trim().replace(".",",");
+  const c=q.get("cat");
+  if(c){const hit=cats().find(x=>x.id===c)||cats().find(x=>norm(x.nome)===norm(c))||cats().find(x=>norm(x.nome).startsWith(norm(c)));if(hit)pre.cat=hit.id}
+  const d=q.get("desc");
+  if(d)pre.desc=d.trim().slice(0,80);
+  const pg=q.get("pag");
+  if(pg){const hit=PAYS.find(x=>norm(x)===norm(pg)||norm(x).startsWith(norm(pg)));if(hit)pre.pag=hit}
+  const dt=norm(q.get("data"));
+  if(dt){const base=new Date();if(dt==="ontem")base.setDate(base.getDate()-1);if(dt==="hoje"||dt==="ontem"){pre.data=isoOf(base)}else if(/^\d{4}-\d{2}-\d{2}$/.test(dt))pre.data=dt}
+  return pre;
 }
 function drawSheet(){
   const r=document.getElementById("sheetRoot");
@@ -647,7 +665,7 @@ window.addEventListener("appinstalled",()=>{deferredInstall=null;render()});
 function boot(){
   store=localStore();
   store.start();
-  try{const q=new URLSearchParams(location.search);if(q.get("novo")){history.replaceState(null,"",location.pathname);setTimeout(()=>openSheet(),150)}}catch(e){}
+  try{const q=new URLSearchParams(location.search);if(q.get("novo")||q.get("valor")||q.get("cat")||q.get("desc")){history.replaceState(null,"",location.pathname);setTimeout(()=>openSheet(null,prefillFromURL(q)),150)}}catch(e){}
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
   if("serviceWorker" in navigator&&location.protocol.startsWith("http")){
     navigator.serviceWorker.register("sw.js").then(reg=>{
